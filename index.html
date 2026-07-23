@@ -469,7 +469,7 @@ function compute(){
     else if(contratoStatus==='POR VENCER' || odecStatus==='POR VENCER') semaforo='REVISAR';
 
     return {...p, docsCompletos, expedienteStatus, missing, contratoFecha, contratoStatus, diasContrato,
-             odecFecha, odecVence, odecStatus, diasOdec, semaforo};
+             odecFecha, odecVence, odecStatus, diasOdec, semaforo, estado};
   });
 }
 
@@ -480,6 +480,17 @@ const DOC_LABELS = {
 
 let ROWS = [];
 let ACTIVE_FILTER = null;
+function esActivo(r){
+  return String(r.estatus || '').trim().toLowerCase() === 'activo';
+}
+
+function esUnico(r){
+  return String(r.estatus || '').trim().toLowerCase() === 'único';
+}
+
+function esNoActivo(r){
+  return String(r.estatus || '').trim().toLowerCase() === 'no activo';
+}
 
 // ---- Cargar un Excel actualizado (Proveedores + Expediente_Vigencias) ----
 // Se espera la misma estructura del archivo "ALMACEN_dinamico.xlsx":
@@ -745,12 +756,12 @@ function renderCards(){
   ROWS = compute();
   const total = ROWS.length;
 
-  const expIncompletos = ROWS.filter(r => r.expedienteStatus === 'INCOMPLETO' && r.estatus === 'Activo');
-  const contVencidos = ROWS.filter(r=>r.contratoStatus==='VENCIDO' && r.estatus === 'Activo');
-  const contPorVencer = ROWS.filter(r=>r.contratoStatus==='POR VENCER' && r.estatus === 'Activo');
-  const odecVencidos = ROWS.filter(r=>r.odecStatus==='VENCIDO'  && r.estatus === 'Activo');
-  const odecPorVencer = ROWS.filter(r=>r.odecStatus==='POR VENCER' && r.estatus === 'Activo');
-  const accion = ROWS.filter(r=>r.semaforo==='ACCION' && r.estatus === 'Activo');
+  const expIncompletos = ROWS.filter(r => r.expedienteStatus === 'INCOMPLETO' && esActivo(r));
+  const contVencidos = ROWS.filter(r=>r.contratoStatus==='VENCIDO' && esActivo(r));
+  const contPorVencer = ROWS.filter(r=>r.contratoStatus==='POR VENCER' && esActivo(r));
+  const odecVencidos = ROWS.filter(r=>r.odecStatus==='VENCIDO'  && esActivo(r));
+  const odecPorVencer = ROWS.filter(r=>r.odecStatus==='POR VENCER' && esActivo(r));
+  const accion = ROWS.filter(r=>r.semaforo==='ACCION' && esActivo(r));
 
   document.getElementById('subtitle').innerHTML =
     `Actualizado al <b>${fmt(todayMid())}</b> · <b>${total}</b> proveedores en el catálogo`;
@@ -782,7 +793,7 @@ function renderCards(){
     const c = cards.find(x=>x.key===ACTIVE_FILTER);
     if(c) openDrawer(c.label, c.list); else closeDrawer();
   }
-  const unicos = ROWS.filter(r => r.estatus === 'Único');
+  const unicos = ROWS.filter(r => esUnico(r));
   const unicosList = document.getElementById('unicosList');
   unicosList.innerHTML = '';
   unicos.forEach(r => {
@@ -886,7 +897,7 @@ function renderTable(){
   tbody.innerHTML = '';
 
   const filtered = ROWS.filter(r=>{
-    if(r.estatus === 'No activo') return false;
+    if(!esActivo(r)) return false;
     if(clasif && r.clasif!==clasif) return false;
     if(sem && r.semaforo!==sem) return false;
     if(q){
