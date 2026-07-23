@@ -904,6 +904,7 @@ function renderTable(){
   filtered.forEach(r=>{
     const tr = document.createElement('tr');
     tr.innerHTML = `
+      <span class="badge ${r.estatus==='Único'?'warn':'ok'}">${r.estatus}</span>
       <td><strong>${r.razon}</strong><div class="prov-meta">${r.clasif||''}</div></td>
       <td class="prov-mail">${r.correo||'—'}</td>
       <td>${badgeHtml(r.expedienteStatus)}<div class="prov-meta">${r.docsCompletos}/6 docs</div></td>
