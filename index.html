@@ -359,6 +359,14 @@
     </div>
   </div>
 
+  <details id="unicosSection" style="margin-top:28px;">
+    <summary style="font-family:'IBM Plex Mono',monospace; font-size:11px;
+      letter-spacing:.08em; text-transform:uppercase; cursor:pointer; padding:6px 0;">
+      📦 Proveedores de pedido único
+    </summary>
+    <div id="unicosList" style="margin-top:14px; display:grid; gap:10px;"></div>
+  </details>
+
   <details class="params">
     <summary>Ajustar parámetros de vigencia</summary>
     <div class="params-grid">
@@ -520,7 +528,7 @@ function buildRawFromRows(provRows, evRows, dateParser){
       correo: row[5] || '',
       tel: row[6] || '',
       rfc: row[3] || '',
-      estatus: row['EstatusP'] || 'Activo',
+      estatus: row['8'] || 'Activo',
     };
   }
 
@@ -737,12 +745,12 @@ function renderCards(){
   ROWS = compute();
   const total = ROWS.length;
 
-  const expIncompletos = ROWS.filter(r=>r.expedienteStatus==='INCOMPLETO');
-  const contVencidos = ROWS.filter(r=>r.contratoStatus==='VENCIDO');
-  const contPorVencer = ROWS.filter(r=>r.contratoStatus==='POR VENCER');
-  const odecVencidos = ROWS.filter(r=>r.odecStatus==='VENCIDO');
-  const odecPorVencer = ROWS.filter(r=>r.odecStatus==='POR VENCER');
-  const accion = ROWS.filter(r=>r.semaforo==='ACCION');
+  const expIncompletos = ROWS.filter(r => r.expedienteStatus === 'INCOMPLETO' && r.estatus === 'Activo');
+  const contVencidos = ROWS.filter(r=>r.contratoStatus==='VENCIDO' && r.estatus === 'Activo');
+  const contPorVencer = ROWS.filter(r=>r.contratoStatus==='POR VENCER' && r.estatus === 'Activo');
+  const odecVencidos = ROWS.filter(r=>r.odecStatus==='VENCIDO'  && r.estatus === 'Activo');
+  const odecPorVencer = ROWS.filter(r=>r.odecStatus==='POR VENCER' && r.estatus === 'Activo');
+  const accion = ROWS.filter(r=>r.semaforo==='ACCION' && r.estatus === 'Activo');
 
   document.getElementById('subtitle').innerHTML =
     `Actualizado al <b>${fmt(todayMid())}</b> · <b>${total}</b> proveedores en el catálogo`;
