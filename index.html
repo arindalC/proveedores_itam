@@ -886,6 +886,7 @@ function renderTable(){
   tbody.innerHTML = '';
 
   const filtered = ROWS.filter(r=>{
+    if(r.estatus === 'No activo') return false;
     if(clasif && r.clasif!==clasif) return false;
     if(sem && r.semaforo!==sem) return false;
     if(q){
