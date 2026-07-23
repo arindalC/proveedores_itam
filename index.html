@@ -782,6 +782,23 @@ function renderCards(){
     const c = cards.find(x=>x.key===ACTIVE_FILTER);
     if(c) openDrawer(c.label, c.list); else closeDrawer();
   }
+  const unicos = ROWS.filter(r => r.estatus === 'Único');
+  const unicosList = document.getElementById('unicosList');
+  unicosList.innerHTML = '';
+  unicos.forEach(r => {
+    const el = document.createElement('div');
+    el.className = 'prov-card';
+    el.innerHTML = `
+      <div>
+        <div class="prov-name">${r.razon}</div>
+        <div class="prov-meta">${r.contacto || ''}</div>
+        <div class="prov-mail">${r.correo || 'sin correo'}</div>
+      </div>
+      <div class="prov-detail">${r.clasif || ''}</div>`;
+    unicosList.appendChild(el);
+  });
+  document.getElementById('unicosSection').style.display =
+    unicos.length > 0 ? 'block' : 'none';
 }
 
 function detailFor(kind, r){
