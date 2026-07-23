@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Expedientes — Proveedores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  :root{
+    --ink:#151b2e;
+    --ink-soft:#2a3352;
+    --paper:#eef1f0;
+    --paper-card:#f7f8f6;
+    --kraft:#d9c9a3;
+    --kraft-dark:#b9a06a;
+    --kraft-tab:#e7d9b4;
+    --stamp-red:#b23a2e;
+    --stamp-red-soft:#f4dcd8;
+    --stamp-amber:#a9772b;
+    --stamp-amber-soft:#f3e3c8;
+    --stamp-green:#2f5d3a;
+    --stamp-green-soft:#dbe9dc;
+    --line:#c9cdc4;
+    --shadow: 0 1px 0 rgba(21,27,46,.05), 0 8px 20px -12px rgba(21,27,46,.35);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 500px at 10% -10%, rgba(217,201,163,.35), transparent 60%),
+      var(--paper);
+    color:var(--ink);
+    font-family:'Inter', system-ui, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    padding:32px 20px 80px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    opacity:.7;
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:clamp(28px,4vw,42px);
+    margin:0 0 6px;
+    letter-spacing:-.01em;
+    line-height:1.05;
+  }
+  .subtitle{
+    font-size:14px;
+    color:var(--ink-soft);
+    opacity:.85;
+    margin:0 0 28px;
+  }
+  .subtitle b{color:var(--ink);}
+
+  /* ---- Upload bar ---- */
+  .upload-bar{
+    display:flex; align-items:center; justify-content:space-between; gap:14px;
+    flex-wrap:wrap;
+    background:var(--paper-card);
+    border:1px dashed var(--kraft-dark);
+    border-radius:10px;
+    padding:12px 16px;
+    margin-bottom:22px;
+  }
+  .upload-status{
+    font-size:12.5px; color:var(--ink-soft);
+  }
+  .upload-status b{color:var(--ink);}
+  .upload-actions{display:flex; gap:8px; flex-wrap:wrap;}
+  .upload-btn.refresh{background:var(--stamp-green);}
+  .upload-btn.refresh:hover{background:#264a2e;}
+  .upload-btn.secondary{background:transparent; color:var(--ink-soft); border:1px solid var(--line);}
+  .upload-btn.secondary:hover{background:var(--paper);}
+  .upload-btn{
+    background:var(--ink); color:#fff; font-size:12.5px; font-weight:600;
+    padding:9px 14px; border-radius:8px; cursor:pointer; white-space:nowrap;
+    font-family:'IBM Plex Mono', monospace; letter-spacing:.02em;
+    transition:background .15s ease; border:none; display:inline-flex; align-items:center; gap:6px;
+  }
+  .upload-btn:hover{background:var(--ink-soft);}
+  .upload-error{
+    background:var(--stamp-red-soft); color:var(--stamp-red); font-size:12.5px;
+    padding:10px 14px; border-radius:8px; margin:-12px 0 22px;
+  }
+
+  /* ---- Folder tab stat cards ---- */
+  .rack{
+    display:grid;
+    grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
+    gap:14px;
+    margin-bottom:6px;
+  }
+  .tab{
+    position:relative;
+    background:var(--paper-card);
+    border:1px solid var(--line);
+    border-radius:10px 10px 4px 4px;
+    padding:18px 16px 16px;
+    cursor:pointer;
+    text-align:left;
+    box-shadow:var(--shadow);
+    transition:transform .16s ease, box-shadow .16s ease;
+    font-family:inherit;
+    color:inherit;
+  }
+  .tab::before{
+    content:'';
+    position:absolute;
+    top:-9px; left:14px;
+    width:46%;
+    height:14px;
+    background:var(--kraft-tab);
+    border:1px solid var(--line);
+    border-bottom:none;
+    border-radius:6px 6px 0 0;
+  }
+  .tab:hover{transform:translateY(-3px);}
+  .tab:focus-visible{outline:3px solid var(--ink-soft); outline-offset:2px;}
+  .tab.active{box-shadow:0 0 0 2px var(--ink) inset, var(--shadow);}
+  .tab .num{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:34px;
+    line-height:1;
+    display:block;
+    margin-bottom:6px;
+  }
+  .tab .lbl{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    font-weight:600;
+  }
+  .tab.sev-ok .num{color:var(--stamp-green);}
+  .tab.sev-warn .num{color:var(--stamp-amber);}
+  .tab.sev-bad .num{color:var(--stamp-red);}
+  .tab.sev-neutral .num{color:var(--ink);}
+
+  .stamp-badge{
+    display:inline-block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    padding:2px 7px;
+    border-radius:20px;
+    margin-top:8px;
+  }
+  .sev-ok .stamp-badge{background:var(--stamp-green-soft); color:var(--stamp-green);}
+  .sev-warn .stamp-badge{background:var(--stamp-amber-soft); color:var(--stamp-amber);}
+  .sev-bad .stamp-badge{background:var(--stamp-red-soft); color:var(--stamp-red);}
+
+  /* ---- Drawer (opens below cards) ---- */
+  .drawer{
+    margin-top:22px;
+    background:var(--paper-card);
+    border:1px solid var(--line);
+    border-radius:12px;
+    box-shadow:var(--shadow);
+    overflow:hidden;
+    max-height:0;
+    opacity:0;
+    transition:max-height .35s ease, opacity .3s ease, margin .35s ease;
+  }
+  .drawer.open{max-height:2000px; opacity:1;}
+  .drawer-inner{padding:22px 24px 26px;}
+  .drawer-head{
+    display:flex; align-items:baseline; justify-content:space-between; gap:12px;
+    margin-bottom:14px; flex-wrap:wrap;
+  }
+  .drawer-title{
+    font-family:'Fraunces', serif;
+    font-size:20px;
+    font-weight:600;
+  }
+  .drawer-count{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    opacity:.75;
+  }
+  .close-btn{
+    background:none; border:1px solid var(--line); border-radius:6px;
+    padding:5px 10px; font-size:12px; cursor:pointer; color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .close-btn:hover{background:var(--paper);}
+
+  .card-row{
+    display:grid;
+    grid-template-columns: 1fr;
+    gap:10px;
+  }
+  .prov-card{
+    display:grid;
+    grid-template-columns: 1fr auto;
+    gap:6px 16px;
+    align-items:center;
+    padding:12px 14px;
+    border:1px solid var(--line);
+    border-radius:8px;
+    background:var(--paper);
+  }
+  .prov-name{font-weight:600; font-size:14px;}
+  .prov-meta{font-size:12.5px; color:var(--ink-soft); opacity:.85; margin-top:2px;}
+  .prov-mail{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .prov-detail{
+    font-size:12px;
+    text-align:right;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .prov-detail.bad{color:var(--stamp-red);}
+  .prov-detail.warn{color:var(--stamp-amber);}
+  .prov-detail.ok{color:var(--stamp-green);}
+  .missing-tag{
+    display:inline-block;
+    font-size:11px;
+    background:var(--stamp-red-soft);
+    color:var(--stamp-red);
+    padding:1px 6px;
+    border-radius:20px;
+    margin:2px 3px 0 0;
+  }
+
+  .empty-msg{padding:20px; text-align:center; color:var(--ink-soft); font-size:13px;}
+
+  /* ---- Params ---- */
+  details.params{margin-top:26px; font-size:13px;}
+  details.params summary{
+    cursor:pointer; font-family:'IBM Plex Mono', monospace; font-size:11px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft);
+    padding:6px 0;
+  }
+  .params-grid{
+    display:flex; gap:22px; flex-wrap:wrap; padding:14px 0 6px;
+  }
+  .param-item label{display:block; font-size:11.5px; color:var(--ink-soft); margin-bottom:4px;}
+  .param-item input{
+    width:80px; padding:6px 8px; border:1px solid var(--line); border-radius:6px;
+    font-family:'IBM Plex Mono', monospace; font-size:13px; background:var(--paper-card);
+  }
+
+  /* ---- Full table ---- */
+  .table-section{margin-top:34px;}
+  .table-toolbar{
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px;
+  }
+  .table-toolbar input[type=text]{
+    flex:1; min-width:200px; padding:9px 12px; border:1px solid var(--line);
+    border-radius:8px; font-size:13px; background:var(--paper-card); color:var(--ink);
+  }
+  .table-toolbar select{
+    padding:9px 10px; border:1px solid var(--line); border-radius:8px;
+    font-size:13px; background:var(--paper-card); color:var(--ink);
+  }
+  .tbl-wrap{
+    border:1px solid var(--line); border-radius:12px; overflow:hidden; background:var(--paper-card);
+  }
+  table{width:100%; border-collapse:collapse; font-size:12.5px;}
+  thead th{
+    text-align:left; padding:10px 12px; background:var(--ink); color:#fff;
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:.06em;
+    text-transform:uppercase; position:sticky; top:0;
+  }
+  tbody td{padding:10px 12px; border-top:1px solid var(--line); vertical-align:top;}
+  tbody tr:hover{background:var(--paper);}
+  .badge{
+    display:inline-block; font-family:'IBM Plex Mono', monospace; font-size:10px;
+    letter-spacing:.05em; text-transform:uppercase; padding:2px 8px; border-radius:20px;
+  }
+  .badge.ok{background:var(--stamp-green-soft); color:var(--stamp-green);}
+  .badge.warn{background:var(--stamp-amber-soft); color:var(--stamp-amber);}
+  .badge.bad{background:var(--stamp-red-soft); color:var(--stamp-red);}
+  .badge.neutral{background:#e4e4e0; color:var(--ink-soft);}
+
+  footer{margin-top:30px; font-size:11.5px; color:var(--ink-soft); opacity:.6; text-align:center;}
+
+  @media (max-width:640px){
+    .prov-card{grid-template-columns:1fr;}
+    .prov-detail{text-align:left;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Almacén · Expedientes de Proveedores</p>
+  <h1>Control de Expedientes</h1>
+  <p class="subtitle" id="subtitle"></p>
+
+  <div class="upload-bar" id="uploadBar">
+    <div class="upload-status" id="uploadStatus">
+      Mostrando datos de muestra (los del momento en que se generó este panel).
+    </div>
+    <div class="upload-actions">
+      <button class="upload-btn refresh" id="gsheetRefreshBtn" style="display:none;">🔄 Refrescar desde Google Sheets</button>
+      <button class="upload-btn secondary" id="gsheetSetupBtn">⚙️ Conectar Google Sheets</button>
+    </div>
+  </div>
+  <div class="upload-error" id="uploadError" style="display:none;"></div>
+
+  <details class="params" id="gsheetSetup" style="margin-top:-14px; margin-bottom:22px;">
+    <summary>⚙️ Configurar conexión con Google Sheets</summary>
+    <div class="params-grid" style="flex-direction:column; align-items:stretch; gap:12px;">
+      <div class="param-item" style="width:100%;">
+        <label>Link publicado (CSV) — pestaña "Proveedores"</label>
+        <input type="text" id="provUrl" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" style="width:100%;">
+      </div>
+      <div class="param-item" style="width:100%;">
+        <label>Link publicado (CSV) — pestaña "Expediente_Vigencias"</label>
+        <input type="text" id="evUrl" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" style="width:100%;">
+      </div>
+      <div>
+        <button class="upload-btn" id="saveGsheetBtn">Guardar y cargar</button>
+      </div>
+      <p style="font-size:11.5px; color:var(--ink-soft); opacity:.8; max-width:640px;">
+        En Google Sheets: Archivo → Compartir → Publicar en la Web → elige la pestaña
+        (no "Todo el documento") → formato CSV → Publicar → copia el link aquí.
+        Estos links se guardan solo en este navegador.<br>
+        <strong>Recomendado:</strong> selecciona las columnas de fecha (vigencia de
+        contrato y fecha de la opinión) → Formato → Número → Fecha ISO 8601
+        (2026-07-26), para que no haya confusión entre día/mes.
+      </p>
+    </div>
+  </details>
+
+  <details class="params" style="margin-top:-14px;">
+    <summary>📂 Modo manual (sin Google Sheets) — subir el Excel a mano</summary>
+    <div class="params-grid" style="padding-top:14px;">
+      <button class="upload-btn" id="pickBtn">📂 Elegir mi Excel</button>
+      <button class="upload-btn refresh" id="refreshBtn" style="display:none;">🔄 Refrescar</button>
+      <label class="upload-btn secondary" id="fallbackLabel" style="display:none;">
+        📂 Subir Excel
+        <input type="file" id="fileInput" accept=".xlsx,.xlsm,.xlsb,.xls" hidden>
+      </label>
+    </div>
+  </details>
+
+  <div class="rack" id="rack"></div>
+
+  <div class="drawer" id="drawer">
+    <div class="drawer-inner">
+      <div class="drawer-head">
+        <div>
+          <div class="drawer-title" id="drawerTitle">—</div>
+          <div class="drawer-count" id="drawerCount"></div>
+        </div>
+        <button class="close-btn" id="closeDrawer">Cerrar ✕</button>
+      </div>
+      <div class="card-row" id="drawerList"></div>
+    </div>
+  </div>
+
+  <details class="params">
+    <summary>Ajustar parámetros de vigencia</summary>
+    <div class="params-grid">
+      <div class="param-item">
+        <label>Aviso contrato (días)</label>
+        <input type="number" id="pAlertContrato" value="15" min="0">
+      </div>
+      <div class="param-item">
+        <label>Aviso opinión (días)</label>
+        <input type="number" id="pAlertOdec" value="15" min="0">
+      </div>
+      <div class="param-item">
+        <label>Vigencia opinión (días)</label>
+        <input type="number" id="pVigenciaOdec" value="90" min="1">
+      </div>
+    </div>
+  </details>
+
+  <div class="table-section">
+    <div class="table-toolbar">
+      <input type="text" id="search" placeholder="Buscar proveedor, contacto o correo…">
+      <select id="filterClasif"><option value="">Todas las clasificaciones</option></select>
+      <select id="filterSemaforo">
+        <option value="">Todos los estatus</option>
+        <option value="ACCION">Acción requerida</option>
+        <option value="REVISAR">A revisar</option>
+        <option value="OK">OK</option>
+      </select>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Proveedor</th>
+            <th>Correo</th>
+            <th>Expediente</th>
+            <th>Contrato</th>
+            <th>Opinión Cumpl.</th>
+            <th>Estatus</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <footer>Generado a partir de tu archivo ALMACÉN · Los estatus se recalculan solos cada vez que abres este panel.</footer>
+</div>
+
+<script>
+const RAW = [{"id": 1, "razon": "Abastecedora Lumen, S.A. de C.V.", "persona": "Moral", "rfc": "ALU-830902-ST5", "contacto": "Oscar de trinidad ", "correo": "oetrinidad@lumen.com.mx", "tel": "Cel. 55 1300 6528                  Of. 5533111445", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Vencido"}, "contratoFecha": "2026-02-27", "odecFecha": "2026-01-13", "comentarios": null}, {"id": 2, "razon": "Distribuidores y Fabricantes de Artículos Escolares y de Oficina, S.A. de C.V. (ORPAMEX)", "persona": "Moral", "rfc": "DFA-070118-1Y4", "contacto": "Fernanda Castro", "correo": "Telemark9@orpamex.com.mx", "tel": "552454-1700 X 283 552454-3106       Cel. 554616-6933", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2027-02-16", "odecFecha": "2026-01-02", "comentarios": "YA LE MANDE CORREO "}, {"id": 3, "razon": "Posadas & Colín Grupo Papelero, S.A. de C.V", "persona": "Moral", "rfc": "ROAJ-800109-97A", "contacto": "Araceli Sánchez", "correo": "araceli.sanchez@totaloffice.mx\npatricia.nava@totaloffice.mx", "tel": "Cel. 552517-7830   552124-5886 / 5893", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Recibido"}, "contratoFecha": "2026-05-09", "odecFecha": "2026-02-03", "comentarios": null}, {"id": 4, "razon": "OFFICE DEPOT DE MÉXICO, S.A. DE C.V.", "persona": "Moral", "rfc": "ODM950324V2A", "contacto": "Francisco Javier Diaz de la Vega Flores ", "correo": "francisco.delavega@officedepot.com.mx", "tel": "TEL 55 5246 4000 2203 CEL 5516822113", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-07-26", "odecFecha": "2026-02-04", "comentarios": null}, {"id": 5, "razon": "XPRESSO", "persona": "Moral", "rfc": "XCG-120312-2D7", "contacto": "Jannet Gómez", "correo": "jannet_gomez@hotmail.com", "tel": "Cel. 5541406110 ", "clasif": "pape", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-01-30", "odecFecha": null, "comentarios": null}, {"id": 6, "razon": "CICOVISA, S.A. de C.V.", "persona": "Moral", "rfc": "CIC-830816-5A4", "contacto": "Consultor de vetas: Blanca Estela Contreras \nServicio a cliente: Fernanda velazquez", "correo": "blanca.contreras@cicovisa.com   \n fernanda.velazquez@cicovisa.com", "tel": "55 1107 0700                           55 6969 9552\n55 1107 0700 Ext 182", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-02-24", "odecFecha": "2026-01-12", "comentarios": null}, {"id": 7, "razon": "Hortensia Alarcón de la O", "persona": "Física", "rfc": "AAOH-580525-HGA", "contacto": "Sr. Juan Villegas", "correo": "sellospalma@yahoo.com.mx", "tel": "555446-1620                   Cel 55-2263-4796", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2027-02-16", "odecFecha": "2026-01-21", "comentarios": "YA LE MANDE CORREO "}, {"id": 8, "razon": "Litográfica JM, S.A. de C.V.", "persona": "Moral", "rfc": "LJM-990316-PS9", "contacto": "Sr.  Ricardo Muciño", "correo": "litograficajm@yahoo.com.mx", "tel": "555581-8229             Cel. 552720-3369", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2027-01-15", "odecFecha": "2026-01-05", "comentarios": null}, {"id": 9, "razon": "QB SOLUCIONES, S.A. DE C.V.", "persona": "Física", "rfc": "LOGS6203071M8", "contacto": "Lic. Sergio López-Araiza ", "correo": "sergio@qbsoluciones.com.mx", "tel": "5598-2752             04455-3200-5035", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-04-21", "odecFecha": "2026-01-07", "comentarios": null}, {"id": 10, "razon": "SERVICIOS Y PRODUCTOS DIGITALES CRC", "persona": "Moral", "rfc": "SPD0604105ZA", "contacto": "Lic. Alberto Meléndez", "correo": "amelendez@rdsmexico.mx", "tel": "WhatsApp 5548541602", "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-04-09", "odecFecha": "2026-01-13", "comentarios": null}, {"id": 11, "razon": "PREMIUM PUBLICIDAD ", "persona": "Moral", "rfc": "PPU060518S63", "contacto": "Lic. Priscila Vieyra", "correo": "compras@premiumpublicidad.com.mx", "tel": 5543360799, "clasif": "pape", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Vencido"}, "contratoFecha": "2026-04-21", "odecFecha": "2026-01-05", "comentarios": "YA LE MANDE CORREO "}, {"id": 12, "razon": "PROMO CARPETAS", "persona": "Física", "rfc": "COLX007199A9", "contacto": "Ximena Angélica Cobos", "correo": "ventas.promocarpetas@gmail.com", "tel": "55 3859 4313", "clasif": "pape", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-08-26", "odecFecha": null, "comentarios": null}, {"id": 13, "razon": "Internacional Fax y Papel, S.A. de C.V.", "persona": "Moral", "rfc": "IFP-940124-N9A", "contacto": "Ing. Raúl Ramón", "correo": "raulramon2000@yahoo.com.mx", "tel": "554456-0858             Cel. 554364-9310", "clasif": "hig", "docs": {"autorizacion": "Pendiente", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2027-01-28", "odecFecha": "2026-01-12", "comentarios": null}, {"id": 14, "razon": "KEY QUIMICA, S.A.de C.V.", "persona": "Moral", "rfc": "KQU-6911016X5", "contacto": "Nancy Nieves", "correo": "nancy.nieves@key.com.mx", "tel": "552611-5583                                Cel. 554447-2754", "clasif": "hig", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2026-09-10", "odecFecha": "2026-01-02", "comentarios": "YA LE MANDE CORREO "}, {"id": 15, "razon": "Itoko Comercializadora Internacional S de RL de CV", "persona": "Moral", "rfc": "ICI210216TE5", "contacto": "Daniel Sánchez", "correo": "daniel@itoko.com.mx", "tel": "(55)4352-7682", "clasif": "Limp", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-07-11", "odecFecha": null, "comentarios": null}, {"id": 16, "razon": "María Isabel Serrato Castañeda (Seyra)", "persona": "Física", "rfc": "SECI-631112-MJ2", "contacto": "Marisela o Mayra", "correo": "grupo_seyra@yahoo.com.mx", "tel": "555342-4657               555341-4794", "clasif": "Limp", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2027-02-25", "odecFecha": "2026-02-10", "comentarios": null}, {"id": 17, "razon": "Judith Bobadilla Gutiérrez (Swipe)", "persona": "Física", "rfc": "BOGJ610508KN6", "contacto": "Yessica Madera", "correo": "administracion@swipecdmx.mx", "tel": "55 5424-6663\n55 1054-0571", "clasif": "Limp", "docs": {"autorizacion": "No aplica", "poder": "No aplica", "identificacion": "No aplica", "csf": "No aplica", "compDom": "No aplica", "edoCta": "No aplica"}, "contratoFecha": "2026-05-23", "odecFecha": null, "comentarios": null}, {"id": 18, "razon": "Abasto y Servicio Integral Profesional, S.A. de C.V.", "persona": "Moral", "rfc": "ASI-060306-BN7", "contacto": "Ma. De los Ángeles Lozano", "correo": "abastoyserviciosadecv@yahoo.com.mx", "tel": "553624-2784                    551054-3658", "clasif": "Med", "docs": {"autorizacion": "No aplica", "poder": "No aplica", "identificacion": "No aplica", "csf": "No aplica", "compDom": "No aplica", "edoCta": "No aplica"}, "contratoFecha": "2025-07-12", "odecFecha": null, "comentarios": null}, {"id": 19, "razon": "PHARMA BURK, S.A. DE C.V", "persona": "Moral", "rfc": "PBU080408T31", "contacto": "Michel Torres", "correo": "ventas@pharmaburk.com", "tel": " 777-3102-774                    777-3180-885", "clasif": "Med", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-07-28", "odecFecha": "2026-01-09", "comentarios": null}, {"id": 20, "razon": "AGR MEDICAL", "persona": "Moral", "rfc": "AOU050520LH1", "contacto": "…", "correo": "agrhospitalesmtk@gmail.com", "tel": "55 5833 7988", "clasif": "Med", "docs": {"autorizacion": "Pendiente", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2026-05-07", "odecFecha": "2026-01-12", "comentarios": null}, {"id": 21, "razon": "Kreática y Paisaje, S.A. de C.V.", "persona": "Moral", "rfc": "KPA-200812-BV4", "contacto": "Alejandro Trejo", "correo": "alejandrom@kreaticaypaisaje.com     alejandrotrejo29@yahoo.com.mx", "tel": "555676-7399        Cel. 556679-5764", "clasif": "Jard", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-04-08", "odecFecha": null, "comentarios": null}, {"id": 22, "razon": "Servicios Mora", "persona": "Física", "rfc": "MORF840215933", "contacto": "Fausto Mora", "correo": "fausto.mora.28@hotmail.com", "tel": "552523 9769", "clasif": "Jard", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-08-01", "odecFecha": "2026-02-24", "comentarios": null}, {"id": 23, "razon": "ADT Private Security Services de México, S.A. de C.V.", "persona": "Moral", "rfc": null, "contacto": "María del Rocío Torres", "correo": "maria.torres.cabrera@adt.mx", "tel": "55 5488 8000 ext.3980", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": null, "odecFecha": "2026-01-05", "comentarios": null}, {"id": 24, "razon": "Servicio J. Gutiérrez, S.A. de C.V.", "persona": "Moral", "rfc": "SJG-950301-2N4", "contacto": "C.P. Serafín Cerón               Sr. Armando Cruces", "correo": "est013jg@hotmail.lcom", "tel": "555550-0300  555550-2345", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": null, "odecFecha": "2026-01-15", "comentarios": null}, {"id": 25, "razon": "Envasadoras de agua en México, S. de R.L. de C.V.  (BONAFONT)", "persona": "Moral", "rfc": "EAM-001231-D51", "contacto": "Eduardo Reyes", "correo": "eduardo.reyes1@danone.com", "tel": "Cel. 55 6208 2718", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": null, "odecFecha": null, "comentarios": null}, {"id": 26, "razon": "BEBIDAS PURIFICADAS (epura) ", "persona": "Moral", "rfc": "BPU7901018D4", "contacto": "José Rosete", "correo": "Jose.Rosete@gepp.com", "tel": 5516465369, "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": null, "odecFecha": null, "comentarios": null}, {"id": 27, "razon": "José Jacobo Rivera (SANTA MARÍA)", "persona": "Física", "rfc": "JARJ-730310-MH3", "contacto": "Horacio Pérez Atzin", "correo": "perezhoracioa@hotmail.com", "tel": "551654-5738", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2027-02-08", "odecFecha": "2026-01-31", "comentarios": null}, {"id": 28, "razon": "José Rogelio Navarro Rivera", "persona": "Física", "rfc": "NARR-890704-A63", "contacto": "Rogelio Navarro", "correo": "ventasaquatag@gmail.com", "tel": "552048-7005", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-05-22", "odecFecha": "2026-01-20", "comentarios": null}, {"id": 29, "razon": "ON SITE DESTRUCTION MEXICO, S.A. DE C.V", "persona": "Moral", "rfc": "OSD-060317-BA4", "contacto": "Gabriela Rios Medina ", "correo": "grios@onsite.mx", "tel": "Tel: 55 5356 9653 ext. 108 Cel:(55)3731-7682", "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-10-08", "odecFecha": null, "comentarios": null}, {"id": 30, "razon": "MAURICIO RENÉ VELA PIÑÓN (AQUATEKNIA)", "persona": "Física", "rfc": "VEPM-741112522", "contacto": "Reyna San Nicolás", "correo": "lrsannicolas@gmail.com", "tel": "Cel:  5539936900", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-07-25", "odecFecha": "2026-02-20", "comentarios": null}, {"id": 31, "razon": "LIMPI MEXICANA", "persona": "Moral", "rfc": "LME821001T48", "contacto": "GABRIELA RESENDIZ", "correo": "grabriela.resendiz@prolim.mx", "tel": "Cel: 55 5564 4011", "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2027-01-01", "odecFecha": null, "comentarios": null}, {"id": 32, "razon": "BANDERAS UNIVERSAL", "persona": "Física", "rfc": "IASA610627JP5", "contacto": "L.A.I.  Alejandro Ibarra Sánchez", "correo": "ban-universal@hotmail.com", "tel": "55 5765 7435     55 5797 4858      55 2216 4563 WhatsApp     ", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-05-26", "odecFecha": "2026-01-06", "comentarios": null}, {"id": 33, "razon": "MANTENIMIENTO GENERAL Y EQUIPAMIENTO DE PISCINAS (QUIMIA)", "persona": "Moral", "rfc": "MGI150617AI9", "contacto": "Mireya Onnett González Cuevas", "correo": "grupoquimiamexico@hotmail.com", "tel": "554519621   5590181803", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2027-01-29", "odecFecha": "2026-01-19", "comentarios": null}, {"id": 34, "razon": "Abastecedora de combustible de Oriente", "persona": "Moral", "rfc": "ACO100309DZ9", "contacto": "Silvia Mendoza", "correo": "ventas@combustibleaco.mx, asistente@combustibleaco.mx", "tel": "558502-2864", "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": null, "odecFecha": null, "comentarios": null}, {"id": 35, "razon": "COMPAÑÍA LUGO", "persona": "Moral", "rfc": "LUG030129GG7", "contacto": "Elvia López García", "correo": "ventas@companialugo.com.mx", "tel": "5590-7538 / 5579-9318", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2027-01-21", "odecFecha": "2026-01-28", "comentarios": null}, {"id": 36, "razon": "IXTAPA CAFÉ", "persona": "Moral", "rfc": "MIOX000324UI8", "contacto": "Natalia Ramírez", "correo": "cafeixtapa.ventas@gmail.com", "tel": "75-51-01-01-95", "clasif": "Compras", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-11-10", "odecFecha": "2026-01-26", "comentarios": null}, {"id": 37, "razon": "ULINE", "persona": "Moral", "rfc": null, "contacto": null, "correo": null, "tel": null, "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": null, "odecFecha": null, "comentarios": null}, {"id": 38, "razon": "WL", "persona": "Moral", "rfc": "GWL890518GE7", "contacto": "Yertti Vega ", "correo": "yeritt@wl.com.mx", "tel": "555689-4079", "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-05-26", "odecFecha": null, "comentarios": null}, {"id": 39, "razon": "MX-RACE", "persona": "Moral", "rfc": "RUFM620406AX5", "contacto": "Adriana Venegas Venegas", "correo": " a.venegas@mx-race.com", "tel": 5568164436, "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-06-09", "odecFecha": null, "comentarios": null}, {"id": 40, "razon": "MERCADO TOC (EMMA PELAGIO)", "persona": "Física", "rfc": "PERE870927KB9", "contacto": "Sandra Vargas", "correo": "comercial@despensastoc.com.mx", "tel": 5568164436, "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": null, "odecFecha": null, "comentarios": null}, {"id": 41, "razon": "VINOS LA NAVAL", "persona": "Física", "rfc": null, "contacto": "Jesus Florindo", "correo": "direccionventas@lanaval.com.mx", "tel": null, "clasif": "Compras", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": null, "odecFecha": null, "comentarios": null}, {"id": 42, "razon": "Amaro Rodríguez Jorge", "persona": "Física", "rfc": "AARJ-830804-943", "contacto": "JESSICA MENDOZA", "correo": "contacto@alquiladoramexico.com          j0rgeamar0@hotmail.com  domosycarpasmx@gmail.com", "tel": "Tel: 5568995177", "clasif": "Mob", "docs": {"autorizacion": "Recibido", "poder": "Pendiente", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Vencido"}, "contratoFecha": "2026-11-12", "odecFecha": "2026-01-14", "comentarios": "YA LE MANDE CORREO "}, {"id": 43, "razon": "ALEF Tools, S.A. de C.V.", "persona": "Moral", "rfc": "ATO-190509-AH5", "contacto": "Braulio Hernández", "correo": "ventas01aleftools@gmail.com", "tel": "558841-2000 X 102  Cel. 551965-5441", "clasif": "Mtto", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2027-03-06", "odecFecha": "2026-01-05", "comentarios": null}, {"id": 44, "razon": "Eléctrica San Miguel de México, S.A. de C.V.", "persona": "Moral", "rfc": "ESM-831024-PX0", "contacto": "Edilberto Pérez", "correo": "perez@electricasanmiguel.com.mx", "tel": "555539-8186     555539-6882", "clasif": "Mtto", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2027-03-18", "odecFecha": "2026-01-02", "comentarios": null}, {"id": 45, "razon": "Euroeléctrica, S.A. de C.V.", "persona": "Moral", "rfc": "EUR-930324-493", "contacto": "Alberto Urbina Castro", "correo": "euroventas23@euroelectrica.com.mx", "tel": "555445-2300               Ext. 0127", "clasif": "Mtto", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2027-01-16", "odecFecha": "2026-01-05", "comentarios": "falta firma en contrato"}, {"id": 46, "razon": "La Barata del Centro, S. de R.L. de C.V.", "persona": "Moral", "rfc": "AIAM-700713-EQ8", "contacto": "Sra. Lilia Matus", "correo": "lilia_matus@hotmail.com      moyamkie@gmail.com", "tel": "555546-0638     555703-3375       Cel. 555452-3009", "clasif": "Mtto", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2026-12-08", "odecFecha": "2026-01-02", "comentarios": null}, {"id": 47, "razon": "Virginia Ordoñez González", "persona": "Física", "rfc": "OOGV-731225-LL2", "contacto": "Felipe Quevedo", "correo": "jfelipe_1806@hotmail.com", "tel": "552607-7262   Cel. 552042-0281", "clasif": "Mtto", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-04-21", "odecFecha": "2026-01-19", "comentarios": null}, {"id": 48, "razon": "Evelina Barrera Rodríguez", "persona": "Física", "rfc": "BARE-201220-EK2", "contacto": "Sra. Bahena", "correo": "pisosyacabados1@hotmail.com", "tel": "555563-0989            Cel. 551993-8080", "clasif": "Mtto", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-03-12", "odecFecha": null, "comentarios": null}, {"id": 49, "razon": "DISTRIBUIDORA MARESA INTERNACIONAL S.A. DE C.V. (DIMAI)", "persona": "Moral", "rfc": "DMI970110PJ8", "contacto": "Víctor Torres", "correo": "victort@dimai.com.mx", "tel": "555526-2140   Cel. 552123-5237", "clasif": "Mtto", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-03-11", "odecFecha": null, "comentarios": null}, {"id": 50, "razon": "LAURA DAVALOS REYES ", "persona": "Física", "rfc": "DARL660816UA1", "contacto": "LAURA DAVALOS", "correo": null, "tel": null, "clasif": "Mtto", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-07-01", "odecFecha": null, "comentarios": null}, {"id": 51, "razon": "ALEJANDRO LOPEZ LORENZP", "persona": "Física", "rfc": "LOLA530811F97", "contacto": "Olivia Jimenez", "correo": "oliviajimenez70@prodigy.net.mx", "tel": "55 6255 0087", "clasif": "Mtto", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-12-06", "odecFecha": null, "comentarios": null}, {"id": 52, "razon": "SALOMON SIERRA GUERRERO", "persona": "Física", "rfc": "SIGS670407MU4", "contacto": "Salomon Sierra", "correo": "ssierrag@yahoo.com.mx", "tel": "55 7047 6699", "clasif": "Mtto", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-07-30", "odecFecha": "2026-01-05", "comentarios": null}, {"id": 53, "razon": "Corporativo Llikanan", "persona": "Moral", "rfc": "CLI220621S46", "contacto": "Nancy Lli", "correo": "flexipachucahgoadmon@outlook.com", "tel": null, "clasif": "Unif", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-08-18", "odecFecha": null, "comentarios": null}, {"id": 54, "razon": "Dulce María Rueda García", "persona": "Física", "rfc": "RUGD-860126-AN9", "contacto": "Dulce Rueda", "correo": "dulcemaria.rueda@gmail.com", "tel": "553433-7719", "clasif": "Unif", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Recibido", "edoCta": "Recibido"}, "contratoFecha": "2026-07-16", "odecFecha": "2026-01-27", "comentarios": null}, {"id": 55, "razon": "Ramón Aguiñaga Gutierrez", "persona": "Física", "rfc": "AUGR821201QS2", "contacto": "Lidia Flores // Víctor", "correo": "stylishmancollection@hotmail.com", "tel": "555675-0047  555555-1851  555555-1853", "clasif": "Unif", "docs": {"autorizacion": "Pendiente", "poder": "Pendiente", "identificacion": "Pendiente", "csf": "Pendiente", "compDom": "Pendiente", "edoCta": "Pendiente"}, "contratoFecha": "2026-07-23", "odecFecha": null, "comentarios": null}, {"id": 56, "razon": "Grupo Industrial Toluca, S.A. de C.V.", "persona": "Moral", "rfc": "GIT-840329-UT4", "contacto": "América Gómora", "correo": "agomora@zapatoscrucero.com", "tel": "555395-3129  555395-3157", "clasif": "Unif", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2026-10-22", "odecFecha": "2026-01-12", "comentarios": null}, {"id": 57, "razon": "DISTRIBUIDORA MEDALLA GACELA, S.A. DE C.V.", "persona": "Moral", "rfc": "DMG810501D15", "contacto": "Eduardo Mtz Montes de Oca Héctor Pérez", "correo": "aemontesdeoca46@gmail.com       ventasmex@medallagacela.com.mx", "tel": "55-20-68-24-01          56-35-37-61-25", "clasif": "Unif", "docs": {"autorizacion": "Recibido", "poder": "Recibido", "identificacion": "Recibido", "csf": "Recibido", "compDom": "Vencido", "edoCta": "Vencido"}, "contratoFecha": "2026-10-20", "odecFecha": "2026-01-05", "comentarios": null}];
+
+let PARAMS = { alertContrato: 15, alertOdec: 15, vigenciaOdec: 90 };
+
+function parseDate(s){
+  if(!s) return null;
+  const [y,m,d] = s.split('-').map(Number);
+  return new Date(y, m-1, d);
+}
+function todayMid(){
+  const t = new Date();
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+}
+function addDays(date, n){
+  const d = new Date(date);
+  d.setDate(d.getDate()+n);
+  return d;
+}
+function daysBetween(a,b){
+  return Math.round((a-b)/86400000);
+}
+function fmt(date){
+  if(!date) return '—';
+  return date.toLocaleDateString('es-MX', {day:'2-digit', month:'short', year:'numeric'});
+}
+
+function compute(){
+  const today = todayMid();
+  return RAW.map(p=>{
+    const docsVals = Object.values(p.docs);
+    const docsCompletos = docsVals.filter(v=>v==='Recibido'||v==='No aplica').length;
+    const expedienteStatus = docsCompletos===6 ? 'COMPLETO' : 'INCOMPLETO';
+    const missing = Object.entries(p.docs).filter(([k,v])=>v==='Pendiente').map(([k])=>DOC_LABELS[k]||k);
+
+    const contratoFecha = parseDate(p.contratoFecha);
+    let contratoStatus = 'SIN DATO', diasContrato = null;
+    if(contratoFecha){
+      diasContrato = daysBetween(contratoFecha, today);
+      contratoStatus = diasContrato<0 ? 'VENCIDO' : (diasContrato<=PARAMS.alertContrato ? 'POR VENCER' : 'VIGENTE');
+    }
+
+    const odecFecha = parseDate(p.odecFecha);
+    let odecVence=null, odecStatus='SIN DATO', diasOdec=null;
+    if(odecFecha){
+      odecVence = addDays(odecFecha, PARAMS.vigenciaOdec);
+      diasOdec = daysBetween(odecVence, today);
+      odecStatus = diasOdec<0 ? 'VENCIDO' : (diasOdec<=PARAMS.alertOdec ? 'POR VENCER' : 'VIGENTE');
+    }
+
+    let semaforo = 'OK';
+    if(expedienteStatus==='INCOMPLETO' || contratoStatus==='VENCIDO' || odecStatus==='VENCIDO') semaforo='ACCION';
+    else if(contratoStatus==='POR VENCER' || odecStatus==='POR VENCER') semaforo='REVISAR';
+
+    return {...p, docsCompletos, expedienteStatus, missing, contratoFecha, contratoStatus, diasContrato,
+             odecFecha, odecVence, odecStatus, diasOdec, semaforo};
+  });
+}
+
+const DOC_LABELS = {
+  autorizacion:'Autorización de abono', poder:'Poder notarial / Aviso priv.',
+  identificacion:'Identificación', csf:'CSF', compDom:'Comp. domicilio', edoCta:'Edo. cuenta'
+};
+
+let ROWS = [];
+let ACTIVE_FILTER = null;
+
+// ---- Cargar un Excel actualizado (Proveedores + Expediente_Vigencias) ----
+// Se espera la misma estructura del archivo "ALMACEN_dinamico.xlsx":
+//   Hoja "Proveedores": id_proveedor, Razón_Social, Persona, RFC, Contacto_Principal, Correo, Teléfono, Clasificación, Estatus
+//   Hoja "Expediente_Vigencias": id_proveedor, Razón_Social, Clasificación, Persona,
+//     Autorización Abono, Poder Notarial/Aviso Priv, Identificación, CSF, Comp. Domicilio, Edo. Cuenta,
+//     ... (col 13 = fecha vencimiento contrato, col 16 = fecha opinión recibida, col 21 = comentarios)
+function toISO(d){
+  if(!d) return null;
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// Convierte texto de una celda CSV de Google Sheets a fecha.
+// Acepta ISO (2026-07-26) y formato día/mes/año (26/07/2026, el más común
+// si tu hoja está en español/México). Si formateaste las columnas de
+// fecha como "Fecha ISO" en Sheets, esto siempre va a funcionar sin ambigüedad.
+function parseFlexibleDateString(str){
+  if(str==null) return null;
+  const s = String(str).trim();
+  if(s==='') return null;
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m){
+    let day = Number(m[1]), month = Number(m[2]);
+    const year = Number(m[3]);
+    // Asumimos día/mes/año (locale México). Si "mes" no es válido (>12) y
+    // "día" sí lo es, probablemente viene como mes/día/año (locale EE.UU.) — se invierte.
+    if(month>12 && day<=12){ const tmp=day; day=month; month=tmp; }
+    return new Date(year, month-1, day);
+  }
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
+
+// Toma las filas (array de arrays, fila 0 = encabezado) de las hojas
+// Proveedores y Expediente_Vigencias y arma el arreglo RAW que usa el panel.
+// dateParser: función para convertir el valor crudo de una celda de fecha a Date.
+function buildRawFromRows(provRows, evRows, dateParser){
+  const provById = {};
+  for(let i=1;i<provRows.length;i++){
+    const row = provRows[i];
+    if(!row || row[0]==null || row[0]==='') continue;
+    provById[row[0]] = {
+      contacto: row[4] || '',
+      correo: row[5] || '',
+      tel: row[6] || '',
+      rfc: row[3] || '',
+    };
+  }
+
+  const newRaw = [];
+  for(let i=1;i<evRows.length;i++){
+    const row = evRows[i];
+    if(!row || row[0]==null || row[0]==='') continue;
+    const id = row[0];
+    const prov = provById[id] || {};
+    newRaw.push({
+      id,
+      razon: row[1] || '',
+      persona: row[3] || '',
+      rfc: prov.rfc || '',
+      contacto: prov.contacto || '',
+      correo: prov.correo || '',
+      tel: prov.tel || '',
+      clasif: row[2] || '',
+      docs: {
+        autorizacion: row[4] || 'Pendiente',
+        poder: row[5] || 'Pendiente',
+        identificacion: row[6] || 'Pendiente',
+        csf: row[7] || 'Pendiente',
+        compDom: row[8] || 'Pendiente',
+        edoCta: row[9] || 'Pendiente',
+      },
+      contratoFecha: toISO(dateParser(row[12])),
+      odecFecha: toISO(dateParser(row[15])),
+      comentarios: row[20] || null,
+    });
+  }
+  if(newRaw.length===0){
+    throw new Error('Encontré la hoja pero no pude leer ningún renglón de proveedor. Revisa que no hayas movido las columnas.');
+  }
+  return newRaw;
+}
+
+function excelSerialToDate(v){
+  if(v instanceof Date) return v;
+  if(typeof v === 'number'){
+    const parsed = XLSX.SSF.parse_date_code(v);
+    if(parsed) return new Date(parsed.y, parsed.m-1, parsed.d);
+  }
+  if(typeof v === 'string' && v.trim()!==''){
+    const d = new Date(v);
+    if(!isNaN(d)) return d;
+  }
+  return null;
+}
+
+function handleWorkbook(workbook){
+  const provSheetName = workbook.SheetNames.find(n=>n.toLowerCase().includes('proveedor'));
+  const evSheetName = workbook.SheetNames.find(n=>n.toLowerCase().includes('expediente'));
+  if(!evSheetName){
+    throw new Error('No encontré una hoja llamada "Expediente_Vigencias" en ese archivo.');
+  }
+  const provRows = provSheetName
+    ? XLSX.utils.sheet_to_json(workbook.Sheets[provSheetName], {header:1, raw:true, defval:null})
+    : [];
+  const evRows = XLSX.utils.sheet_to_json(workbook.Sheets[evSheetName], {header:1, raw:true, defval:null});
+  return buildRawFromRows(provRows, evRows, excelSerialToDate);
+}
+
+// ---- Conexión con Google Sheets (publicado como CSV) ----
+const LS_PROV_URL = 'panelExp_provUrl';
+const LS_EV_URL = 'panelExp_evUrl';
+
+function fetchCsvAsRows(url){
+  return fetch(url, {cache:'no-store'})
+    .then(r=>{
+      if(!r.ok) throw new Error(`No pude descargar ese link (código ${r.status}). Revisa que esté publicado y sea público.`);
+      return r.text();
+    })
+    .then(text=>{
+      const parsed = Papa.parse(text, {header:false, skipEmptyLines:true});
+      return parsed.data;
+    });
+}
+
+async function loadFromGoogleSheets(provUrl, evUrl){
+  document.getElementById('uploadError').style.display = 'none';
+  try{
+    const [provRows, evRows] = await Promise.all([
+      provUrl ? fetchCsvAsRows(provUrl) : Promise.resolve([]),
+      fetchCsvAsRows(evUrl),
+    ]);
+    const newRaw = buildRawFromRows(provRows, evRows, parseFlexibleDateString);
+    RAW.length = 0;
+    RAW.push(...newRaw);
+    ACTIVE_FILTER = null;
+    const now = new Date();
+    document.getElementById('uploadStatus').innerHTML =
+      `Conectado a <b>Google Sheets</b> · actualizado ${now.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}`;
+    document.getElementById('gsheetRefreshBtn').style.display = 'inline-flex';
+    renderCards();
+  }catch(err){
+    showUploadError(err.message);
+  }
+}
+
+document.getElementById('saveGsheetBtn').addEventListener('click', ()=>{
+  const provUrl = document.getElementById('provUrl').value.trim();
+  const evUrl = document.getElementById('evUrl').value.trim();
+  if(!evUrl){
+    showUploadError('Al menos pega el link de la pestaña "Expediente_Vigencias".');
+    return;
+  }
+  localStorage.setItem(LS_PROV_URL, provUrl);
+  localStorage.setItem(LS_EV_URL, evUrl);
+  loadFromGoogleSheets(provUrl, evUrl);
+});
+
+document.getElementById('gsheetRefreshBtn').addEventListener('click', ()=>{
+  loadFromGoogleSheets(localStorage.getItem(LS_PROV_URL)||'', localStorage.getItem(LS_EV_URL));
+});
+
+document.getElementById('gsheetSetupBtn').addEventListener('click', ()=>{
+  document.getElementById('gsheetSetup').open = true;
+  document.getElementById('gsheetSetup').scrollIntoView({behavior:'smooth', block:'center'});
+});
+
+// Al cargar la página: si ya guardamos links antes, conecta solo.
+(function initGsheets(){
+  const provUrl = localStorage.getItem(LS_PROV_URL) || '';
+  const evUrl = localStorage.getItem(LS_EV_URL);
+  if(evUrl){
+    document.getElementById('provUrl').value = provUrl;
+    document.getElementById('evUrl').value = evUrl;
+    loadFromGoogleSheets(provUrl, evUrl);
+  }
+})();
+
+document.getElementById('fileInput').addEventListener('change', function(e){
+  const file = e.target.files[0];
+  if(!file) return;
+  loadFileObject(file);
+});
+
+let fileHandle = null;
+const supportsFSAccess = 'showOpenFilePicker' in window;
+
+if(supportsFSAccess){
+  document.getElementById('pickBtn').addEventListener('click', async ()=>{
+    try{
+      const [handle] = await window.showOpenFilePicker({
+        types: [{description:'Excel', accept:{'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':['.xlsx'], 'application/vnd.ms-excel.sheet.binary.macroEnabled.12':['.xlsb']}}]
+      });
+      fileHandle = handle;
+      const file = await handle.getFile();
+      await loadFileObject(file, true);
+      document.getElementById('refreshBtn').style.display = 'inline-flex';
+      document.getElementById('pickBtn').textContent = '📂 Elegir otro archivo';
+    }catch(err){
+      if(err.name !== 'AbortError') showUploadError(err.message);
+    }
+  });
+  document.getElementById('refreshBtn').addEventListener('click', async ()=>{
+    if(!fileHandle) return;
+    try{
+      const file = await fileHandle.getFile();
+      await loadFileObject(file, true);
+    }catch(err){
+      showUploadError('No pude releer el archivo — si lo moviste o renombraste, vuelve a picar "Elegir otro archivo".');
+    }
+  });
+} else {
+  document.getElementById('pickBtn').style.display = 'none';
+  document.getElementById('fallbackLabel').style.display = 'inline-flex';
+}
+
+function showUploadError(msg){
+  const errBox = document.getElementById('uploadError');
+  errBox.textContent = '⚠️ ' + (msg || 'No pude leer ese archivo. Asegúrate de subir el .xlsx sin cambiar la estructura de columnas.');
+  errBox.style.display = 'block';
+}
+
+function loadFileObject(file, viaHandle){
+  return new Promise((resolve)=>{
+    document.getElementById('uploadError').style.display = 'none';
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      try{
+        const data = new Uint8Array(ev.target.result);
+        const workbook = XLSX.read(data, {type:'array', cellDates:true});
+        const newRaw = handleWorkbook(workbook);
+        RAW.length = 0;
+        RAW.push(...newRaw);
+        ACTIVE_FILTER = null;
+        const now = new Date();
+        const tip = viaHandle ? ' · dale "Refrescar" cuando lo vuelvas a guardar' : '';
+        document.getElementById('uploadStatus').innerHTML =
+          `Mostrando <b>${file.name}</b> · actualizado ${now.toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})}${tip}`;
+        renderCards();
+      }catch(err){
+        showUploadError(err.message);
+      }
+      resolve();
+    };
+    reader.onerror = function(){
+      showUploadError('No pude leer el archivo. Intenta de nuevo.');
+      resolve();
+    };
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+function sevClass(kind, count){
+  if(kind==='bad') return count>0 ? 'sev-bad':'sev-neutral';
+  if(kind==='warn') return count>0 ? 'sev-warn':'sev-neutral';
+  return 'sev-ok';
+}
+
+function renderCards(){
+  ROWS = compute();
+  const total = ROWS.length;
+
+  const expIncompletos = ROWS.filter(r=>r.expedienteStatus==='INCOMPLETO');
+  const contVencidos = ROWS.filter(r=>r.contratoStatus==='VENCIDO');
+  const contPorVencer = ROWS.filter(r=>r.contratoStatus==='POR VENCER');
+  const odecVencidos = ROWS.filter(r=>r.odecStatus==='VENCIDO');
+  const odecPorVencer = ROWS.filter(r=>r.odecStatus==='POR VENCER');
+  const accion = ROWS.filter(r=>r.semaforo==='ACCION');
+
+  document.getElementById('subtitle').innerHTML =
+    `Actualizado al <b>${fmt(todayMid())}</b> · <b>${total}</b> proveedores en el catálogo`;
+
+  const cards = [
+    {key:'expIncompletos', label:'Expedientes incompletos', list:expIncompletos, kind:'bad'},
+    {key:'contVencidos', label:'Contratos vencidos', list:contVencidos, kind:'bad'},
+    {key:'contPorVencer', label:'Contratos por vencer', list:contPorVencer, kind:'warn'},
+    {key:'odecVencidos', label:'Opinión vencida', list:odecVencidos, kind:'bad'},
+    {key:'odecPorVencer', label:'Opinión por vencer', list:odecPorVencer, kind:'warn'},
+    {key:'accion', label:'Acción requerida (total)', list:accion, kind:'bad'},
+  ];
+
+  const rack = document.getElementById('rack');
+  rack.innerHTML = '';
+  cards.forEach(c=>{
+    const btn = document.createElement('button');
+    btn.className = `tab ${sevClass(c.kind, c.list.length)}${ACTIVE_FILTER===c.key?' active':''}`;
+    btn.innerHTML = `<span class="num">${c.list.length}</span><span class="lbl">${c.label}</span>
+      <span class="stamp-badge">${c.list.length>0 ? (c.kind==='bad'?'Revisar ya':'Próximamente') : 'Al día'}</span>`;
+    btn.onclick = ()=> toggleDrawer(c.key, c.label, c.list);
+    rack.appendChild(btn);
+  });
+
+  populateClasifOptions();
+  renderTable();
+
+  if(ACTIVE_FILTER){
+    const c = cards.find(x=>x.key===ACTIVE_FILTER);
+    if(c) openDrawer(c.label, c.list); else closeDrawer();
+  }
+}
+
+function detailFor(kind, r){
+  if(kind==='expIncompletos'){
+    return {cls:'', html: r.missing.map(m=>`<span class="missing-tag">${m}</span>`).join('')};
+  }
+  if(kind==='contVencidos' || kind==='contPorVencer'){
+    const cls = kind==='contVencidos' ? 'bad':'warn';
+    const txt = r.diasContrato<0 ? `Venció hace ${Math.abs(r.diasContrato)} días` : `Vence en ${r.diasContrato} días`;
+    return {cls, html: `${fmt(r.contratoFecha)}<br>${txt}`};
+  }
+  if(kind==='odecVencidos' || kind==='odecPorVencer'){
+    const cls = kind==='odecVencidos' ? 'bad':'warn';
+    const txt = r.diasOdec<0 ? `Venció hace ${Math.abs(r.diasOdec)} días` : `Vence en ${r.diasOdec} días`;
+    return {cls, html: `${fmt(r.odecVence)}<br>${txt}`};
+  }
+  if(kind==='accion'){
+    const reasons = [];
+    if(r.expedienteStatus==='INCOMPLETO') reasons.push('expediente incompleto');
+    if(r.contratoStatus==='VENCIDO') reasons.push('contrato vencido');
+    if(r.odecStatus==='VENCIDO') reasons.push('opinión vencida');
+    return {cls:'bad', html: reasons.join(' · ')};
+  }
+  return {cls:'', html:''};
+}
+
+function toggleDrawer(key, label, list){
+  if(ACTIVE_FILTER===key){ ACTIVE_FILTER=null; closeDrawer(); renderCards(); return; }
+  ACTIVE_FILTER = key;
+  openDrawer(label, list);
+  renderCards();
+}
+
+function openDrawer(label, list){
+  const drawer = document.getElementById('drawer');
+  document.getElementById('drawerTitle').textContent = label;
+  document.getElementById('drawerCount').textContent = `${list.length} proveedor${list.length===1?'':'es'}`;
+  const box = document.getElementById('drawerList');
+  box.innerHTML = '';
+  if(list.length===0){
+    box.innerHTML = '<div class="empty-msg">Nada que mostrar aquí — todo en orden.</div>';
+  } else {
+    list.sort((a,b)=>a.razon.localeCompare(b.razon)).forEach(r=>{
+      const d = detailFor(ACTIVE_FILTER, r);
+      const el = document.createElement('div');
+      el.className = 'prov-card';
+      el.innerHTML = `
+        <div>
+          <div class="prov-name">${r.razon}</div>
+          <div class="prov-meta">${r.contacto||''}</div>
+          <div class="prov-mail">${r.correo||'sin correo registrado'}</div>
+        </div>
+        <div class="prov-detail ${d.cls}">${d.html}</div>`;
+      box.appendChild(el);
+    });
+  }
+  drawer.classList.add('open');
+  drawer.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  ACTIVE_FILTER = null;
+}
+document.getElementById('closeDrawer').onclick = ()=>{ closeDrawer(); renderCards(); };
+
+function populateClasifOptions(){
+  const sel = document.getElementById('filterClasif');
+  const current = sel.value;
+  const uniq = [...new Set(ROWS.map(r=>r.clasif).filter(Boolean))].sort();
+  sel.innerHTML = '<option value="">Todas las clasificaciones</option>' +
+    uniq.map(c=>`<option value="${c}">${c}</option>`).join('');
+  sel.value = current;
+}
+
+function badgeHtml(status){
+  const map = {VIGENTE:'ok', 'POR VENCER':'warn', VENCIDO:'bad', 'SIN DATO':'neutral', COMPLETO:'ok', INCOMPLETO:'bad'};
+  return `<span class="badge ${map[status]||'neutral'}">${status}</span>`;
+}
+
+function renderTable(){
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const clasif = document.getElementById('filterClasif').value;
+  const sem = document.getElementById('filterSemaforo').value;
+  const tbody = document.getElementById('tbody');
+  tbody.innerHTML = '';
+
+  const filtered = ROWS.filter(r=>{
+    if(clasif && r.clasif!==clasif) return false;
+    if(sem && r.semaforo!==sem) return false;
+    if(q){
+      const hay = `${r.razon} ${r.contacto||''} ${r.correo||''}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b)=>a.razon.localeCompare(b.razon));
+
+  if(filtered.length===0){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Sin resultados para ese filtro.</td></tr>';
+    return;
+  }
+
+  filtered.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><strong>${r.razon}</strong><div class="prov-meta">${r.clasif||''}</div></td>
+      <td class="prov-mail">${r.correo||'—'}</td>
+      <td>${badgeHtml(r.expedienteStatus)}<div class="prov-meta">${r.docsCompletos}/6 docs</div></td>
+      <td>${badgeHtml(r.contratoStatus)}<div class="prov-meta">${fmt(r.contratoFecha)}</div></td>
+      <td>${badgeHtml(r.odecStatus)}<div class="prov-meta">${fmt(r.odecVence)}</div></td>
+      <td>${badgeHtml(r.semaforo==='ACCION'?'VENCIDO':(r.semaforo==='REVISAR'?'POR VENCER':'VIGENTE'))}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+document.getElementById('search').addEventListener('input', renderTable);
+document.getElementById('filterClasif').addEventListener('change', renderTable);
+document.getElementById('filterSemaforo').addEventListener('change', renderTable);
+
+['pAlertContrato','pAlertOdec','pVigenciaOdec'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', (e)=>{
+    PARAMS.alertContrato = Number(document.getElementById('pAlertContrato').value)||0;
+    PARAMS.alertOdec = Number(document.getElementById('pAlertOdec').value)||0;
+    PARAMS.vigenciaOdec = Number(document.getElementById('pVigenciaOdec').value)||90;
+    renderCards();
+  });
+});
+
+renderCards();
+</script>
+</body>
+</html>
