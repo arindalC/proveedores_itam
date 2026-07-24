@@ -895,7 +895,7 @@ function renderTable(){
   tbody.innerHTML = '';
 
   const filtered = ROWS.filter(r=>{
-    if(esNoActivo(r)) return false;
+    if(!esActivo(r)) return false;
     if(clasif && r.clasif!==clasif) return false;
     if(sem && r.semaforo!==sem) return false;
     if(q){
