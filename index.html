@@ -100,7 +100,7 @@
     display:grid;
     grid-template-columns:repeat(auto-fit, minmax(150px,1fr));
     gap:14px;
-    margin-bottom:9px;
+    margin-bottom:6px;
   }
   .tab{
     position:relative;
@@ -304,11 +304,11 @@
 
   <div class="upload-bar" id="uploadBar">
     <div class="upload-status" id="uploadStatus">
-      Mostrando datos
+      Mostrando datos de muestra (los del momento en que se generó este panel).
     </div>
     <div class="upload-actions">
-      <button class="upload-btn refresh" id="gsheetRefreshBtn" style="display:none;">🔄 Refrescar desde Google</button>
-      <button class="upload-btn secondary" id="gsheetSetupBtn">⚙️ Conectar Google</button>
+      <button class="upload-btn refresh" id="gsheetRefreshBtn" style="display:none;">🔄 Refrescar desde Google Sheets</button>
+      <button class="upload-btn secondary" id="gsheetSetupBtn">⚙️ Conectar Google Sheets</button>
     </div>
   </div>
   <div class="upload-error" id="uploadError" style="display:none;"></div>
@@ -317,11 +317,11 @@
     <summary>⚙️ Conexión con Google Sheets</summary>
     <div class="params-grid" style="flex-direction:column; align-items:stretch; gap:12px;">
       <div class="param-item" style="width:100%;">
-        <label>Proveedores</label>
+        <label>Link publicado (CSV) — pestaña "Proveedores"</label>
         <input type="text" id="provUrl" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" style="width:100%;">
       </div>
       <div class="param-item" style="width:100%;">
-        <label>Expediente_Vigencias</label>
+        <label>Link publicado (CSV) — pestaña "Expediente_Vigencias"</label>
         <input type="text" id="evUrl" placeholder="https://docs.google.com/spreadsheets/d/e/…/pub?output=csv" style="width:100%;">
       </div>
       <div>
@@ -330,7 +330,7 @@
     </div>
   </details>
 
-  <details class="params" style="margin-top:-14px; margin-bottom:28px;">
+  <details class="params" style="margin-top:-14px;">
     <summary>📂 Manual</summary>
     <div class="params-grid" style="padding-top:14px;">
       <button class="upload-btn" id="pickBtn">📂 Elegir mi Excel</button>
@@ -342,8 +342,6 @@
     </div>
   </details>
 
-  <hr style="border:none; border-top:1px solid var(--line); margin:0 0 24px;">
-  
   <div class="rack" id="rack"></div>
 
   <div class="drawer" id="drawer">
@@ -359,10 +357,10 @@
     </div>
   </div>
 
-  <details id="unicosSection" style="margin-top:28px;">
+  <details id="unicosSection" style="margin-top:28px; display:none;">
     <summary style="font-family:'IBM Plex Mono',monospace; font-size:11px;
-      letter-spacing:.08em; text-transform:uppercase; cursor:pointer; padding:6px 0;">
-      📦 Proveedores de pedido único
+      letter-spacing:.08em; text-transform:uppercase; cursor:pointer; padding:6px 0; color:var(--ink-soft);">
+      📦 Pedido único · <span id="unicosCount">0</span> proveedor(es)
     </summary>
     <div id="unicosList" style="margin-top:14px; display:grid; gap:10px;"></div>
   </details>
@@ -405,7 +403,7 @@
             <th>Expediente</th>
             <th>Contrato</th>
             <th>Opinión Cumpl.</th>
-            <th>Estatus</th>
+            <th>Edo</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -469,7 +467,7 @@ function compute(){
     else if(contratoStatus==='POR VENCER' || odecStatus==='POR VENCER') semaforo='REVISAR';
 
     return {...p, docsCompletos, expedienteStatus, missing, contratoFecha, contratoStatus, diasContrato,
-             odecFecha, odecVence, odecStatus, diasOdec, semaforo, estado};
+             odecFecha, odecVence, odecStatus, diasOdec, semaforo, estatus: p.estatus || 'Activo'};
   });
 }
 
@@ -480,20 +478,13 @@ const DOC_LABELS = {
 
 let ROWS = [];
 let ACTIVE_FILTER = null;
-function esActivo(r){
-  return String(r.estatus || '').trim().toLowerCase() === 'activo';
-}
 
-function esUnico(r){
-  return String(r.estatus || '').trim().toLowerCase() === 'único';
-}
-
-function esNoActivo(r){
-  return String(r.estatus || '').trim().toLowerCase() === 'no activo';
-}
+function esActivo(r){ return (r.estatus||'Activo').trim().toLowerCase()==='activo'; }
+function esUnico(r){ return (r.estatus||'').trim().toLowerCase()==='único'; }
+function esNoActivo(r){ return (r.estatus||'').trim().toLowerCase()==='no activo'; }
 
 // ---- Cargar un Excel actualizado (Proveedores + Expediente_Vigencias) ----
-// Se espera la misma estructura del archivo "ALMACEN_dinamico.xlsx":
+// Se espera la misma estructura del archivo "ALMACEN.xlsx":
 //   Hoja "Proveedores": id_proveedor, Razón_Social, Persona, RFC, Contacto_Principal, Correo, Teléfono, Clasificación, Estatus
 //   Hoja "Expediente_Vigencias": id_proveedor, Razón_Social, Clasificación, Persona,
 //     Autorización Abono, Poder Notarial/Aviso Priv, Identificación, CSF, Comp. Domicilio, Edo. Cuenta,
@@ -539,7 +530,7 @@ function buildRawFromRows(provRows, evRows, dateParser){
       correo: row[5] || '',
       tel: row[6] || '',
       rfc: row[3] || '',
-      estatus: row[8] || 'Activo',
+      estatus: (row[8] || 'Activo').toString().trim(),
     };
   }
 
@@ -569,6 +560,7 @@ function buildRawFromRows(provRows, evRows, dateParser){
       contratoFecha: toISO(dateParser(row[12])),
       odecFecha: toISO(dateParser(row[15])),
       comentarios: row[20] || null,
+      estatus: prov.estatus || 'Activo',
     });
   }
   if(newRaw.length===0){
@@ -756,15 +748,16 @@ function renderCards(){
   ROWS = compute();
   const total = ROWS.length;
 
-  const expIncompletos = ROWS.filter(r => r.expedienteStatus === 'INCOMPLETO' && esActivo(r));
-  const contVencidos = ROWS.filter(r=>r.contratoStatus==='VENCIDO' && esActivo(r));
-  const contPorVencer = ROWS.filter(r=>r.contratoStatus==='POR VENCER' && esActivo(r));
-  const odecVencidos = ROWS.filter(r=>r.odecStatus==='VENCIDO'  && esActivo(r));
-  const odecPorVencer = ROWS.filter(r=>r.odecStatus==='POR VENCER' && esActivo(r));
-  const accion = ROWS.filter(r=>r.semaforo==='ACCION' && esActivo(r));
+  const soloActivos = ROWS.filter(r=>esActivo(r));
+  const expIncompletos = soloActivos.filter(r=>r.expedienteStatus==='INCOMPLETO');
+  const contVencidos = soloActivos.filter(r=>r.contratoStatus==='VENCIDO');
+  const contPorVencer = soloActivos.filter(r=>r.contratoStatus==='POR VENCER');
+  const odecVencidos = soloActivos.filter(r=>r.odecStatus==='VENCIDO');
+  const odecPorVencer = soloActivos.filter(r=>r.odecStatus==='POR VENCER');
+  const accion = soloActivos.filter(r=>r.semaforo==='ACCION');
 
   document.getElementById('subtitle').innerHTML =
-    `Actualizado al <b>${fmt(todayMid())}</b> · <b>${total}</b> proveedores en el catálogo`;
+    `Actualizado al <b>${fmt(todayMid())}</b> · <b>${soloActivos.length}</b> activos de <b>${total}</b> en catálogo`;
 
   const cards = [
     {key:'expIncompletos', label:'Expedientes incompletos', list:expIncompletos, kind:'bad'},
@@ -793,23 +786,26 @@ function renderCards(){
     const c = cards.find(x=>x.key===ACTIVE_FILTER);
     if(c) openDrawer(c.label, c.list); else closeDrawer();
   }
-  const unicos = ROWS.filter(r => esUnico(r));
+
+  // ---- Sección pedido único ----
+  const unicos = ROWS.filter(r=>esUnico(r));
+  const unicosSection = document.getElementById('unicosSection');
   const unicosList = document.getElementById('unicosList');
+  document.getElementById('unicosCount').textContent = unicos.length;
+  unicosSection.style.display = unicos.length > 0 ? 'block' : 'none';
   unicosList.innerHTML = '';
-  unicos.forEach(r => {
+  unicos.sort((a,b)=>a.razon.localeCompare(b.razon)).forEach(r=>{
     const el = document.createElement('div');
     el.className = 'prov-card';
     el.innerHTML = `
       <div>
         <div class="prov-name">${r.razon}</div>
-        <div class="prov-meta">${r.contacto || ''}</div>
-        <div class="prov-mail">${r.correo || 'sin correo'}</div>
+        <div class="prov-meta">${r.contacto||''} · ${r.clasif||''}</div>
+        <div class="prov-mail">${r.correo||'sin correo registrado'}</div>
       </div>
-      <div class="prov-detail">${r.clasif || ''}</div>`;
+      <div class="prov-detail warn">Pedido único</div>`;
     unicosList.appendChild(el);
   });
-  document.getElementById('unicosSection').style.display =
-    unicos.length > 0 ? 'block' : 'none';
 }
 
 function detailFor(kind, r){
@@ -897,7 +893,7 @@ function renderTable(){
   tbody.innerHTML = '';
 
   const filtered = ROWS.filter(r=>{
-    if(!esActivo(r)) return false;
+    if(esNoActivo(r)) return false;
     if(clasif && r.clasif!==clasif) return false;
     if(sem && r.semaforo!==sem) return false;
     if(q){
@@ -914,14 +910,16 @@ function renderTable(){
 
   filtered.forEach(r=>{
     const tr = document.createElement('tr');
+    const edoBadge = esUnico(r)
+      ? `<span class="badge warn">Único</span>`
+      : `${badgeHtml(r.semaforo==='ACCION'?'VENCIDO':(r.semaforo==='REVISAR'?'POR VENCER':'VIGENTE'))}`;
     tr.innerHTML = `
-      <span class="badge ${r.estatus==='Único'?'warn':'ok'}">${r.estatus}</span>
       <td><strong>${r.razon}</strong><div class="prov-meta">${r.clasif||''}</div></td>
       <td class="prov-mail">${r.correo||'—'}</td>
       <td>${badgeHtml(r.expedienteStatus)}<div class="prov-meta">${r.docsCompletos}/6 docs</div></td>
       <td>${badgeHtml(r.contratoStatus)}<div class="prov-meta">${fmt(r.contratoFecha)}</div></td>
       <td>${badgeHtml(r.odecStatus)}<div class="prov-meta">${fmt(r.odecVence)}</div></td>
-      <td>${badgeHtml(r.semaforo==='ACCION'?'VENCIDO':(r.semaforo==='REVISAR'?'POR VENCER':'VIGENTE'))}</td>
+      <td>${edoBadge}</td>
     `;
     tbody.appendChild(tr);
   });
